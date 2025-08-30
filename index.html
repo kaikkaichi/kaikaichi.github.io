@@ -61,7 +61,7 @@
         async function startSerial() {
             try {
                 port = await navigator.serial.requestPort();
-                await port.open({ baudRate: 9600 }); // Arduinoのボーレートと合わせる
+                await port.open({ baudRate: 115200 }); // Arduinoのボーレートと合わせる
                 document.getElementById("status-message").textContent = "✅ 接続しました";
                 keepReading = true;
                 readUntilClosed();
