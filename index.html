@@ -27,6 +27,18 @@
             text-align: center; 
             color: #FF69B4;
         }
+        .status-container {
+            max-width: 1200px;
+            margin: 10px auto;
+            text-align: center;
+            font-weight: bold;
+        }
+        /* ★追加: CANステータス用のスタイル */
+        #can-status-message {
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: inline-block;
+        }
         .dashboard { 
             display: grid; 
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
@@ -69,11 +81,8 @@
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
             gap: 15px;
         }
-        #status-message { 
-            text-align: center; 
-            margin-top: 1em; 
+        #firebase-status-message { 
             height: 1.2em; 
-            font-weight: bold; 
         }
         #warnings {
             max-width: 1200px;
@@ -162,11 +171,16 @@
 </head>
 <body>
     <div class="header">
-        <img src="OFRACロゴ.png" alt="OFRAC Logo">
+        <img src="./OFRACロゴ.png" alt="OFRAC Logo">
         <h2>たけちゃんセンサー💘</h2>
     </div>
     
-    <p id="status-message">Firebaseに接続中...</p>
+    <!-- ★変更: ステータス表示エリアを分割 -->
+    <div class="status-container">
+        <span id="firebase-status-message">Firebaseに接続中...</span>
+        |
+        <span id="can-status-message">CAN-BUS: 待機中...</span>
+    </div>
 
     <div id="warnings">
         <div id="warn-water_temp" class="warning-message">警告: 水温が高すぎます！</div>
@@ -197,8 +211,6 @@
         <div class="metric" id="metric-oil_temp"><div class="label">油温 (°C)</div><div class="value" id="data-oil_temp">-</div></div>
         <div class="metric"><div class="label">燃圧 (kPa)</div><div class="value" id="data-fuel_p">-</div></div>
         <div class="metric" id="metric-volts"><div class="label">電圧 (V)</div><div class="value" id="data-volts">-</div></div>
-        <!--<div class="metric"><div class="label">クランクエラー</div><div class="value" id="data-crank_errors">-</div></div>-->
-        <!-- ★変更: パケットカウンター用のメーターを追加 -->
         <div class="metric"><div class="label">Packet #</div><div class="value" id="data-packet_count">-</div></div>
         
         <!-- 燃料消費セクション -->
@@ -227,12 +239,16 @@
 
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-        const statusMessage = document.getElementById('status-message');
+        
+        const firebaseStatusMessage = document.getElementById('firebase-status-message');
+        // ★追加: CANステータス用の要素を取得
+        const canStatusMessage = document.getElementById('can-status-message');
         
         const needle = document.getElementById('gauge-needle');
         const rpmValue = document.getElementById('gauge-rpm-value');
 
         function checkWarnings(data) {
+            // (この関数は変更なし)
             const waterTemp = parseFloat(data.water_temp);
             const waterTempMetric = document.getElementById('metric-water_temp');
             const waterTempWarning = document.getElementById('warn-water_temp');
@@ -270,9 +286,23 @@
         const dataRef = database.ref('livedata/dashboard');
         dataRef.on('value', (snapshot) => {
             if (snapshot.exists()) {
-                statusMessage.textContent = '✅ リアルタイムデータ受信中';
+                firebaseStatusMessage.textContent = '✅ リアルタイムデータ受信中';
                 const data = snapshot.val();
                 
+                // ★追加: CANステータスの更新処理
+                if (data.can_status) {
+                    if (data.can_status === "OK") {
+                        canStatusMessage.textContent = '✅ CAN-BUS: 接続完了';
+                        canStatusMessage.style.color = '#00ffc8';
+                        canStatusMessage.style.backgroundColor = '#003d30';
+
+                    } else if (data.can_status === "Initializing...") {
+                        canStatusMessage.textContent = '... CAN-BUS: 初期化試行中';
+                        canStatusMessage.style.color = '#ffc107';
+                        canStatusMessage.style.backgroundColor = '#4d3800';
+                    }
+                }
+
                 // 既存のデータでダッシュボードを更新
                 Object.keys(data).forEach(key => {
                     const element = document.getElementById(`data-${key}`);
@@ -298,10 +328,10 @@
                 checkWarnings(data);
 
             } else {
-                statusMessage.textContent = '⌛ データがありません。ESP32がデータを送信しているか確認してください。';
+                firebaseStatusMessage.textContent = '⌛ データがありません。ESP32がデータを送信しているか確認してください。';
             }
         }, (error) => {
-            statusMessage.textContent = `❌ 接続エラー: ${error.message}`;
+            firebaseStatusMessage.textContent = `❌ 接続エラー: ${error.message}`;
             console.error("Firebaseの接続に失敗しました: ", error);
         });
     </script>
