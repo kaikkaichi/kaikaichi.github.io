@@ -6,6 +6,8 @@
     <title>CAN Bus History Graph</title>
     <!-- グラフ描画ライブラリ Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- ★★★ 機能追加: Chart.jsのズーム＆パン プラグイン ★★★ -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
@@ -59,6 +61,14 @@
             color: #ccc;
             font-weight: normal;
         }
+        /* ★追加: グラフ操作の案内メッセージ */
+        .chart-info {
+            text-align: center;
+            font-size: 0.9em;
+            color: #888;
+            margin-top: -10px;
+            margin-bottom: 20px;
+        }
     </style>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
@@ -66,13 +76,15 @@
 </head>
 <body>
     <div class="header">
-        <img src="./OFRACロゴ.png" alt="OFRAC Logo">
+        <img src="https://placehold.co/200x50/1a1a1a/FF69B4?text=OFRAC" alt="OFRAC Logo">
         <h2>たけちゃんセンサー💘 (履歴グラフ)</h2>
     </div>
 
     <div class="nav-container">
-        <a href="./index.html" target="_blank" class="nav-button">リアルタイム表示へ切り替え</a>
+        <a href="dashboard_realtime.html" target="_blank" class="nav-button">リアルタイム表示へ切り替え</a>
     </div>
+
+    <p class="chart-info">グラフ上でマウスホイールを使うとズーム、ドラッグでスクロール（パン）ができます。</p>
 
     <div class="chart-container">
         <h3>エンジン回転数 (RPM)</h3>
@@ -114,7 +126,6 @@
                         borderColor: borderColor,
                         backgroundColor: 'rgba(255, 255, 255, 0.05)',
                         tension: 0.1,
-                        // ★★★ 修正点: 点を少し大きくして見やすくする ★★★
                         pointRadius: 2,
                         pointBackgroundColor: borderColor
                     }]
@@ -135,8 +146,24 @@
                             max: yMax
                         }
                     },
+                    // ★★★ 修正点: ズーム＆パン機能のプラグイン設定を追加 ★★★
                     plugins: {
-                        legend: { display: false }
+                        legend: { display: false },
+                        zoom: {
+                            pan: {
+                                enabled: true, // パン(スクロール)を有効化
+                                mode: 'x',     // X軸方向のみ
+                            },
+                            zoom: {
+                                wheel: {
+                                    enabled: true, // マウスホイールでのズームを有効化
+                                },
+                                pinch: {
+                                    enabled: true, // ピンチ操作でのズームを有効化
+                                },
+                                mode: 'x', // X軸方向のみ
+                            }
+                        }
                     }
                 }
             });
@@ -148,20 +175,21 @@
 
         const historyRef = database.ref('history/logs');
 
-        // ★★★ 修正点: グラフ更新関数をリスナーの外に移動 ★★★
         function updateChartData(chart, label, newData) {
-            // 新しいデータを追加
             chart.data.labels.push(label);
             chart.data.datasets[0].data.push(newData);
-            chart.update();
+            // 200件を超えたあたりからパフォーマンスのために update のアニメーションを無効化
+            if (chart.data.labels.length > 200) {
+                 chart.update('none');
+            } else {
+                 chart.update();
+            }
         }
 
         historyRef.on('child_added', (snapshot) => {
             const record = snapshot.val();
-            // ★★★ 修正点: タイムスタンプが存在し、有効な場合のみプロットする ★★★
             if (record && record.timestamp) {
                 const date = new Date(record.timestamp);
-                // "Invalid Date" を防ぐ
                 if (!isNaN(date.getTime())) { 
                     const timeString = date.toLocaleTimeString('ja-JP');
                     
@@ -174,6 +202,4 @@
     </script>
 </body>
 </html>
-
-
 
